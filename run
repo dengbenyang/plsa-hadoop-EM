@@ -1,0 +1,129 @@
+#!/bin/sh
+
+hadoop=/usr/bin/hadoop/software/hadoop/bin/hadoop
+
+
+reduce_tasks=200
+
+a='
+sudo -u nlp $hadoop dfs -rmr /home/nlp/dengbenyang/test/lsa/init
+sudo -u nlp $hadoop jar /usr/bin/hadoop/software/hadoop/contrib/streaming/hadoop-streaming.jar \
+    -D mapred.fairscheduler.pool=nlp \
+	-D mapred.reduce.tasks=$reduce_tasks \
+	-D mapred.job.name="dengbenyang_plsa_init" \
+	-D mapred.reduce.slowstart.completed.maps=0.999 \
+	-D mapred.job.priority=VERY_HIGH \
+	-D mapred.reduce.max.size.per.file=512000000 \
+    -D mapred.max.split.size=50000000 \
+    -D suffix.multiple.outputformat.separator="#"  \
+    -D suffix.multiple.outputformat.filesuffix=topic,data \
+	-D mapred.output.compress=true \
+	-D mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec \
+	-inputformat org.apache.hadoop.mapred.TextInputFormat \
+    -outputformat org.apache.hadoop.mapred.lib.SuffixMultipleTextOutputFormat \
+	-partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+    -input /home/nlp/dengbenyang/ithome_seg_201* \
+	-output /home/nlp/dengbenyang/test/lsa/init \
+	-mapper id_map.pl \
+	-reducer id_init.pl \
+	-file init/id_init.pl \
+	-file init/id_map.pl \
+    -file init/dict
+
+sudo -u nlp $hadoop dfs -text /home/nlp/dengbenyang/test/lsa/init/topic* > topic
+sudo -u nlp $hadoop dfs -rmr /home/nlp/dengbenyang/test/lsa/data_E
+sudo -u nlp $hadoop jar /usr/bin/hadoop/software/hadoop/contrib/streaming/hadoop-streaming.jar \
+    -D mapred.fairscheduler.pool=nlp \
+    -D mapred.reduce.tasks=$reduce_tasks \
+    -D mapred.job.name="dengbenyang_plsa_EM_Mstep" \
+    -D mapred.reduce.slowstart.completed.maps=0.999 \
+    -D mapred.job.priority=VERY_HIGH \
+    -D mapred.reduce.max.size.per.file=512000000 \
+    -D num.key.fields.for.partition=1 \
+    -D stream.num.map.output.key.fields=3 \
+    -D mapred.output.compress=true \
+    -D mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec \
+    -inputformat org.apache.hadoop.mapred.TextInputFormat \
+    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+    -input /home/nlp/dengbenyang/test/lsa/init/ \
+    -output /home/nlp/dengbenyang/test/lsa/data_E \
+    -mapper E_map.pl \
+    -reducer E_step.pl \
+    -file EM/E_map.pl \
+    -file EM/E_step.pl \
+    -file topic
+
+sudo -u nlp $hadoop dfs -rmr /home/nlp/dengbenyang/test/lsa/data_M
+sudo -u nlp $hadoop jar /usr/bin/hadoop/software/hadoop/contrib/streaming/hadoop-streaming.jar \
+    -D mapred.fairscheduler.pool=nlp \
+    -D mapred.reduce.tasks=$reduce_tasks \
+    -D mapred.job.name="dengbenyang_plsa_EM_Mstep" \
+    -D mapred.reduce.slowstart.completed.maps=0.999 \
+    -D mapred.job.priority=VERY_HIGH \
+    -D mapred.reduce.max.size.per.file=512000000 \
+    -D num.key.fields.for.partition=1 \
+    -D stream.num.map.output.key.fields=2 \
+    -D suffix.multiple.outputformat.separator="#"  \
+    -D suffix.multiple.outputformat.filesuffix=topic,data \
+    -D mapred.output.compress=true \
+    -D mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec \
+    -inputformat org.apache.hadoop.mapred.TextInputFormat \
+    -outputformat org.apache.hadoop.mapred.lib.SuffixMultipleTextOutputFormat \
+    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+    -input /home/nlp/dengbenyang/test/lsa/data_E \
+    -output /home/nlp/dengbenyang/test/lsa/data_M \
+    -mapper M_map.pl \
+    -reducer M_step.pl \
+    -file EM/M_map.pl \
+    -file EM/M_step.pl
+'
+
+for i in $(seq 5);
+do
+sudo -u nlp $hadoop dfs -text /home/nlp/dengbenyang/test/lsa/data_M/topic* > topic
+sudo -u nlp $hadoop dfs -rmr /home/nlp/dengbenyang/test/lsa/data_E
+sudo -u nlp $hadoop jar /usr/bin/hadoop/software/hadoop/contrib/streaming/hadoop-streaming.jar \
+    -D mapred.fairscheduler.pool=nlp \
+    -D mapred.reduce.tasks=$reduce_tasks \
+    -D mapred.job.name="dengbenyang_plsa_EM_Mstep"$i \
+    -D mapred.reduce.slowstart.completed.maps=0.999 \
+    -D mapred.job.priority=VERY_HIGH \
+    -D mapred.reduce.max.size.per.file=512000000 \
+    -D num.key.fields.for.partition=1 \
+    -D stream.num.map.output.key.fields=3 \
+    -D mapred.output.compress=true \
+    -D mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec \
+    -inputformat org.apache.hadoop.mapred.TextInputFormat \
+    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+    -input /home/nlp/dengbenyang/test/lsa/data_M \
+    -output /home/nlp/dengbenyang/test/lsa/data_E \
+    -mapper E_map.pl \
+    -reducer E_step.pl \
+    -file EM/E_map.pl \
+    -file EM/E_step.pl \
+    -file topic
+
+sudo -u nlp $hadoop dfs -rmr /home/nlp/dengbenyang/test/lsa/data_M
+sudo -u nlp $hadoop jar /usr/bin/hadoop/software/hadoop/contrib/streaming/hadoop-streaming.jar \
+    -D mapred.fairscheduler.pool=nlp \
+    -D mapred.reduce.tasks=$reduce_tasks \
+    -D mapred.job.name="dengbenyang_plsa_EM_Mstep"$i \
+    -D mapred.reduce.slowstart.completed.maps=0.999 \
+    -D mapred.job.priority=VERY_HIGH \
+    -D mapred.reduce.max.size.per.file=512000000 \
+    -D num.key.fields.for.partition=1 \
+    -D stream.num.map.output.key.fields=2 \
+    -D suffix.multiple.outputformat.separator="#"  \
+    -D suffix.multiple.outputformat.filesuffix=topic,data \
+    -D mapred.output.compress=true \
+    -D mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec \
+    -inputformat org.apache.hadoop.mapred.TextInputFormat \
+    -outputformat org.apache.hadoop.mapred.lib.SuffixMultipleTextOutputFormat \
+    -partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+    -input /home/nlp/dengbenyang/test/lsa/data_E \
+    -output /home/nlp/dengbenyang/test/lsa/data_M \
+    -mapper M_map.pl \
+    -reducer M_step.pl \
+    -file EM/M_map.pl \
+    -file EM/M_step.pl
+done
